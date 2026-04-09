@@ -1,5 +1,31 @@
 # Ukulele Tuner — Implementation Plan
 
+## Project Status
+
+### Done
+- [x] **Phase 1** — Project scaffold (`package.json`, `vite.config.ts`, `tsconfig.json`, `index.html`, `src/main.tsx`, Tailwind/PostCSS config)
+- [x] **Phase 2** — Constants and math utilities (`tuning.ts`, `noteUtils.ts` — `freqToCents`, `findClosestString`, etc.)
+- [x] **Phase 3** — Audio engine (`AudioEngine.ts` Web Audio RAF loop, `PitchDetector.ts` pitchy/MPM wrapper)
+- [x] **Phase 4** — React hooks (`useMicrophone.ts` permission flow, `usePitchDetection.ts` 30fps-throttled state bridge)
+- [x] **Phase 5** — UI components (`TuningNeedle` SVG gauge, `StringSelector`, `PitchDisplay`, `StatusBanner`, `App`)
+- [x] **Phase 6** — Capacitor config (`capacitor.config.ts` for iOS/Android)
+- [x] **Phase 8** — Unit tests (24 passing: `noteUtils.test.ts`, `PitchDetector.test.ts`)
+
+### Next
+- [ ] **Phase 7** — Electron integration (`electron/main.js`, `electron/preload.js`, `electron-builder` config) — optional desktop target
+- [ ] Add iOS native project (`npx cap add ios`) and verify `Info.plist` microphone permission string
+- [ ] Add Android native project (`npx cap add android`) and verify `AndroidManifest.xml` `RECORD_AUDIO` permission
+- [ ] Run `npm run build` and verify Vite output + type-check passes cleanly
+
+### Pending / Backlog
+- [ ] Verify tuning accuracy on a real device with a physical ukulele
+- [ ] Add A/B comparison: try alternative clarity threshold (0.85 vs 0.9) on noisy input
+- [ ] Consider adding a `useEffect` cleanup in `App.tsx` to call `stop()` on unmount
+- [ ] macOS Electron code signing + `com.apple.security.device.microphone` entitlement setup
+- [ ] CI pipeline (GitHub Actions) to run `npm test` and `npm run build` on each push
+
+---
+
 ## Tech Stack
 
 | Layer | Choice | Why |
