@@ -17,4 +17,6 @@ export const MAX_DISPLAY_CENTS = 50
 
 export const MIN_DETECTABLE_FREQ = 200
 export const MAX_DETECTABLE_FREQ = 1200
-export const MIN_CLARITY = 0.9
+// 0.85 is more accepting than 0.9 and helps with nylon strings (e.g. E4)
+// that produce complex waveforms with slightly lower clarity scores.
+export const MIN_CLARITY = 0.85
