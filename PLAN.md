@@ -2,16 +2,28 @@
 
 ## Project Status
 
+## Project Status
+
 ### Done
 - [x] **Phase 1** — Project scaffold (`package.json`, `vite.config.ts`, `tsconfig.json`, `index.html`, `src/main.tsx`, Tailwind/PostCSS config)
-- [x] **Phase 2** — Constants and math utilities (`tuning.ts`, `noteUtils.ts` — `freqToCents`, `findClosestString`, etc.)
-- [x] **Phase 3** — Audio engine (`AudioEngine.ts` Web Audio RAF loop, `PitchDetector.ts` pitchy/MPM wrapper)
-- [x] **Phase 4** — React hooks (`useMicrophone.ts` permission flow, `usePitchDetection.ts` 30fps-throttled state bridge)
-- [x] **Phase 5** — UI components (`TuningNeedle` SVG gauge, `StringSelector`, `PitchDisplay`, `StatusBanner`, `App`)
+- [x] **Phase 2** — Constants and math utilities (`tuning.ts`, `noteUtils.ts` — `freqToCents`, `findClosestString`, `octaveCorrect`)
+- [x] **Phase 3** — Audio engine (`AudioEngine.ts` Web Audio RAF loop with configurable fftSize, `PitchDetector.ts` pitchy/MPM wrapper)
+- [x] **Phase 4** — React hooks (`useMicrophone.ts` permission flow, `usePitchDetection.ts` with EMA smoothing, outlier rejection, debug info)
+- [x] **Phase 5** — UI components (`TuningNeedle` SVG gauge, `StringSelector` with Hz labels, `PitchDisplay`, `StatusBanner`, `App`)
 - [x] **Phase 6** — Capacitor config (`capacitor.config.ts` for iOS/Android)
 - [x] **Phase 7** — Electron integration (`electron/main.js`, `electron/preload.js`, `electron-builder.config.json`, macOS entitlements plist)
-- [x] **Phase 8** — Unit tests (24 passing: `noteUtils.test.ts`, `PitchDetector.test.ts`)
-- [x] Build verified clean (`tsc --noEmit` + `vite build` passing, 158 kB bundle)
+- [x] **Phase 8** — Unit tests (31 passing: `noteUtils.test.ts`, `PitchDetector.test.ts`)
+- [x] Build verified clean (`tsc --noEmit` + `vite build` passing, ~160 kB bundle)
+- [x] Bug fix: TuningNeedle gauge orientation (`centsToAngle` mapped 0¢→180° instead of 270°, rotating entire gauge 90°)
+- [x] Bug fix: Needle now uses `<g transform="rotate()">` for reliable CSS transition
+- [x] EMA smoothing (α=0.2) + null-frame hold (10 frames) for stable display
+- [x] Octave error correction (`octaveCorrect`) — prevents harmonics from pinning needle to extremes
+- [x] Octave correction applied **before** EMA — fixes E4 detection where fundamental/harmonic averaging was pulling estimate to wrong string
+- [x] `MIN_CLARITY` lowered 0.9 → 0.85 for better nylon string (E4) detection
+- [x] Debug mode (`npm run dev:debug` / `VITE_DEBUG=true`) with runtime toggles
+- [x] Large Buffer toggle (4096 samples) in debug panel
+- [x] Outlier Rejection toggle (>200¢ threshold) in debug panel — on by default
+- [x] StringSelector shows target frequency below each note name
 
 ### Next
 - [ ] Add iOS native project (`npx cap add ios`) and verify `Info.plist` microphone permission string
@@ -19,10 +31,11 @@
 - [ ] CI pipeline (GitHub Actions) — run `npm test` and `npm run build` on each push
 
 ### Pending / Backlog
+- [ ] Implement median filter (ideas #3) as an alternative/complement to EMA
+- [ ] Implement lock-on hysteresis (ideas #5) — require larger deviation to switch strings
 - [ ] Verify tuning accuracy on a real device with a physical ukulele
-- [ ] Add A/B comparison: try alternative clarity threshold (0.85 vs 0.9) on noisy input
 - [ ] `useEffect` cleanup in `App.tsx` to call `stop()` on unmount
-- [ ] macOS Electron code signing (requires Apple Developer account + `electron-builder` notarization config)
+- [ ] macOS Electron code signing (requires Apple Developer account + notarization config)
 
 ---
 
@@ -62,28 +75,36 @@ No global state manager needed. The audio engine is a singleton outside React; t
 ```
 src/
   audio/
-    AudioEngine.ts        ← singleton: owns AudioContext + AnalyserNode
-    PitchDetector.ts      ← wraps pitchy, converts freq → note + cents
-    noteUtils.ts          ← frequency/note/cents math helpers
+    AudioEngine.ts        ← Web Audio pipeline; configurable fftSize (2048 or 4096)
+    PitchDetector.ts      ← pitchy/MPM wrapper; clarity + frequency-range filter
+    noteUtils.ts          ← freqToCents, findClosestString, octaveCorrect
+    noteUtils.test.ts
+    PitchDetector.test.ts
   components/
-    StringSelector.tsx    ← G / C / E / A tab strip
-    TuningNeedle.tsx      ← SVG arc gauge showing cents deviation
-    PitchDisplay.tsx      ← current detected note + frequency readout
-    StatusBanner.tsx      ← "In Tune" / "Too Sharp" / "Too Flat" feedback
-    App.tsx               ← root: wires audio → state → UI
+    App.tsx               ← root: owns selectedString + PitchDetectionSettings state
+    StringSelector.tsx    ← G / C / E / A buttons with target Hz labels
+    TuningNeedle.tsx      ← SVG arc gauge; needle rotated via <g transform="rotate()">
+    PitchDisplay.tsx      ← detected note name + rounded Hz readout
+    StatusBanner.tsx      ← "In Tune" / "Too Sharp" / "Too Flat" / "Pluck a String"
+    DebugPanel.tsx        ← debug-only panel (VITE_DEBUG=true); runtime toggles + live stats
   hooks/
-    usePitchDetection.ts  ← custom hook: starts/stops audio, publishes pitch frames
-    useMicrophone.ts      ← abstracts getUserMedia + Capacitor permission flow
+    useMicrophone.ts      ← mic permission flow (web + Capacitor-aware)
+    usePitchDetection.ts  ← EMA smoothing, outlier rejection, octave correction, debug info
   constants/
-    tuning.ts             ← UKULELE_STRINGS, target frequencies, cent thresholds
+    tuning.ts             ← UKULELE_STRINGS, cent thresholds, MIN_CLARITY, freq limits
+    debug.ts              ← DEBUG_MODE constant (import.meta.env.VITE_DEBUG)
+  vite-env.d.ts           ← TypeScript types for VITE_DEBUG env var
   main.tsx
+  index.css
 index.html
 capacitor.config.ts
+electron-builder.config.json
 electron/
-  main.js                 ← Electron main process
+  main.js                 ← Electron main process (mic permission handler)
   preload.js
+  entitlements.mac.plist  ← macOS microphone entitlement for signed builds
 vite.config.ts
-tsconfig.json
+tsconfig.json             ← strict mode, noEmit: true (Vite handles bundling)
 package.json
 ```
 
@@ -118,6 +139,8 @@ Standard ukulele strings (standard G-C-E-A tuning):
 Constants:
 - `IN_TUNE_THRESHOLD_CENTS = 5` — within ±5 cents is "in tune"
 - `MAX_DISPLAY_CENTS = 50` — needle clamps at ±50 cents
+- `MIN_CLARITY = 0.85` — pitchy frames below this are discarded (lowered from 0.9 to improve nylon string detection)
+- `MIN_DETECTABLE_FREQ = 200`, `MAX_DETECTABLE_FREQ = 1200` — outside ukulele range
 
 **`src/audio/noteUtils.ts`**
 
@@ -125,7 +148,8 @@ Pure functions (all unit-testable):
 - `freqToMidi(freq)` — `69 + 12 * log2(freq / 440)`
 - `midiToFreq(midi)` — inverse
 - `freqToCents(detected, target)` — `1200 * log2(detected / target)`, clamped to `[-50, 50]`
-- `findClosestString(freq)` — returns the string with smallest absolute cents deviation
+- `findClosestString(freq)` — returns closest string using octave-corrected MIDI distance
+- `octaveCorrect(detected, target)` — shifts detected freq by octaves until within ±600¢ of target; corrects pitchy's common harmonic detection errors
 
 ---
 
@@ -136,20 +160,21 @@ Pure functions (all unit-testable):
 A class (not a React component) with:
 ```typescript
 class AudioEngine {
-  async start(onFrame: (buffer: Float32Array, sampleRate: number) => void): Promise<void>
-  stop(): void
+  async start(onFrame: FrameCallback, fftSize?: number): Promise<void>
+  stop(): Promise<void>
 }
+export const FFT_SIZE_NORMAL = 2048  // ~46ms @ 44100 Hz, ~15 cycles of C4
+export const FFT_SIZE_LARGE  = 4096  // ~93ms @ 44100 Hz, ~30 cycles — toggled via debug panel
 ```
 
-- `analyser.fftSize = 2048` — ~46ms of audio at 44100 Hz, enough for ~12 cycles of C4
 - `smoothingTimeConstant = 0` — pitchy operates on raw PCM, not smoothed spectrum
-- `stop()` cancels the RAF loop, disconnects nodes, closes AudioContext, and stops all MediaStream tracks (releases mic indicator on mobile)
+- `stop()` cancels the RAF loop, disconnects nodes, closes AudioContext, stops all MediaStream tracks
 
 **`src/audio/PitchDetector.ts`**
 
 Wraps pitchy's `PitchDetector.forFloat32Array(bufferSize)`:
-- Filters out frames where `clarity < 0.9`
-- Filters out frequencies outside `[70, 1500]` Hz (outside ukulele range)
+- Filters out frames where `clarity < MIN_CLARITY` (0.85)
+- Filters out frequencies outside `[200, 1200]` Hz
 
 ---
 
@@ -165,21 +190,30 @@ Exports: `{ status: 'idle' | 'requesting' | 'granted' | 'denied', requestAccess 
 
 **`src/hooks/usePitchDetection.ts`**
 
-Bridges `AudioEngine` into React. Uses `useRef` for the engine (stable, no re-renders) and `useState` for values that drive UI:
+Bridges `AudioEngine` into React. Accepts `PitchDetectionSettings` and returns:
 
 ```typescript
 {
   isListening: boolean,
-  frequency: number | null,
+  frequency: number | null,   // EMA-smoothed, octave-corrected Hz
   clarity: number | null,
   cents: number | null,
   closestString: UkuleleString | null,
-  start: () => Promise<void>,
-  stop: () => void,
+  start: (string?) => Promise<void>,
+  stop: () => Promise<void>,
+  debugInfo: DebugInfo,       // raw freq, clarity, fftSize, lastFrameRejected
 }
 ```
 
-State updates are throttled to ~30fps (timestamp check in `onFrame`) to avoid 60 React reconciles per second.
+Processing pipeline per frame:
+1. `detectPitch` → raw frequency + clarity
+2. `findClosestString(rawFreq)` → target string for correction
+3. `octaveCorrect(rawFreq, target)` → corrected raw (harmonic folded to fundamental)
+4. Outlier rejection: skip if corrected deviates > 200¢ from current EMA
+5. EMA (α=0.2): `smoothed = 0.2 * corrected + 0.8 * prev`
+6. `freqToCents(smoothed, targetString.frequency)` → cents for needle
+
+State updates throttled to ~30fps. Engine restarts automatically when `largeBuffer` setting changes.
 
 ---
 
@@ -192,15 +226,19 @@ Four buttons (G / C / E / A) in a horizontal row. Active string is highlighted. 
 **`src/components/TuningNeedle.tsx`**
 
 SVG arc gauge (the core visual):
-- Static semicircular arc (180°) with colored zones: green (±5¢), yellow (±5–20¢), red (±20–50¢)
-- Needle `<line>` rotated by CSS transform based on `cents` prop
-- At 0¢: points straight up. At -50¢: hard left. At +50¢: hard right.
-- `transition: transform 80ms ease-out` for responsive feel without jitter
+- Semicircular arc centered at bottom, spanning 180° (left=−50¢, top=0¢, right=+50¢)
+- Colored zones: green (±5¢), yellow (±5–20¢), red (±20–50¢)
+- Needle is a `<g transform="rotate(deg, cx, cy)">` around center — CSS `transition: transform 80ms ease-out`
+- Angle formula: `centsToAngle(c) = 270 + (c / 50) * 90` (maps 0¢ to 270° = straight up)
 - Numeric cents value displayed below the arc
 
 **`src/components/PitchDisplay.tsx`**
 
-Shows detected frequency (e.g., "329.4 Hz") and closest note name (e.g., "E4"). Updates at throttled 30fps.
+Shows detected note name (e.g., "E4") and rounded frequency (e.g., "330 Hz"). Updates at throttled 30fps.
+
+**`src/components/DebugPanel.tsx`**
+
+Rendered only when `DEBUG_MODE` is true. Two runtime toggles (Large Buffer, Outlier Rejection) and a live stats grid (raw Hz, clarity, FFT size, last frame status). Uses amber/yellow colour scheme to distinguish from the main UI.
 
 **`src/components/StatusBanner.tsx`**
 
@@ -259,29 +297,45 @@ Note: macOS signed builds need the `com.apple.security.device.microphone` entitl
 
 ### Phase 8 — Tests
 
-**`src/audio/noteUtils.test.ts`** — Unit tests for pure math functions:
-- E4 at exactly 329.63 Hz → 0 cents
-- 350 Hz against E4 target → ~+103 cents
-- 445 Hz input → A4 identified as closest string
+**`src/audio/noteUtils.test.ts`** (25 tests) — Unit tests for pure math functions:
+- `freqToMidi`, `midiToFreq`, `freqToCents` — standard cases + clamping
+- `findClosestString` — all four strings + octave-shifted inputs (880 Hz → A4, 659 Hz → E4)
+- `octaveCorrect` — same, one octave up/down, two octaves up, within ±600¢ assertion
 
-**`src/audio/PitchDetector.test.ts`** — Clarity filter and frequency-range guard using synthetic sine wave Float32Arrays.
+**`src/audio/PitchDetector.test.ts`** (6 tests) — Clarity filter and frequency-range guard using synthetic sine wave `Float32Array`s at A4, E4, C4; silence; out-of-range frequencies.
 
 ---
 
 ## Key Technical Gotchas
 
 ### iOS Safari / Capacitor
-- `AudioContext` must be created inside a user gesture handler — show a "Tap to Start" button on first load
-- On Capacitor/iOS, must call `Microphone.requestPermissions()` via the plugin *before* `getUserMedia`, or it silently fails
+- `AudioContext` must be created inside a user gesture handler — the Start button click is the gesture; do not create the context on mount
+- Capacitor's WebView on iOS handles mic permissions via the OS prompt triggered by `getUserMedia`; no separate Capacitor plugin is required
 
-### Pitch Detection
-- Buffer size: 2048 samples @ 44100 Hz = ~46ms. Sufficient for ~12 full cycles of C4 (lowest ukulele string). Going smaller risks missing low-frequency strings.
-- Clarity threshold 0.9 is a good default — lower accepts noisier frames, higher causes gaps in noisy environments
+### Pitch Detection — Octave Errors
+- pitchy/MPM sometimes locks onto the first harmonic (2× the fundamental) instead of the fundamental itself
+- Symptom: needle pegs to ±50¢ because the reading is ~1200¢ off
+- Fix: `octaveCorrect(detected, target)` rounds `log2(detected/target)` to the nearest integer and divides out that many octaves
+- **Order matters**: octave correction must run on each raw frame **before** feeding into the EMA. If EMA runs first, frames at the fundamental (~330 Hz) and harmonic (~660 Hz) average to ~380 Hz, landing on the wrong string (G4 instead of E4)
+
+### Pitch Detection — Nylon Strings (E4)
+- E4 (329.63 Hz) on nylon produces a more complex waveform with lower clarity scores
+- `MIN_CLARITY` was lowered from 0.9 → 0.85 to capture more valid frames
+- Use the Large Buffer (4096) toggle in debug mode for more reliable detection on this string
+
+### TuningNeedle SVG Geometry
+- SVG y-axis increases downward; in standard polar coordinates (used by `Math.cos`/`Math.sin`), 270° points upward on screen
+- `centsToAngle` must map 0¢ → 270° (not 180°). The original bug mapped 0¢ → 180° (pointing left), rotating the gauge 90°
+- Arc zones use `sweep-flag=1` (clockwise in SVG = going from left through top to right)
 
 ### Auto-Detection vs. Manual String Selection
-- Auto-detect via `findClosestString` works well for single strings but breaks when multiple strings ring simultaneously
-- Default to auto-detect; let users tap a string to lock to that string's target frequency
+- Auto-detect via `findClosestString` works well for single strings but can be confused when multiple strings ring simultaneously
+- Default to auto-detect; users can tap a string button to lock to that string's target frequency
 
 ### Electron macOS
 - Unsigned dev builds work without entitlements
-- Signed production builds need `com.apple.security.device.microphone` in `entitlements.plist` via `electron-builder` config
+- Signed production builds need `com.apple.security.device.microphone` in `electron/entitlements.mac.plist` (already configured); wire via `electron-builder.config.json`
+
+### TypeScript + Vite
+- `noEmit: true` in `tsconfig.json` — `tsc` is used only for type-checking; Vite handles bundling. Without this, `tsc` writes `.js` files alongside `.ts` sources in `src/`
+- `VITE_` prefix on env vars makes them available to the client bundle and subject to Vite's dead-code elimination at build time
