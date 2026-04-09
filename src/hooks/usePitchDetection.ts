@@ -6,6 +6,13 @@ import type { UkuleleString } from '../constants/tuning'
 
 const THROTTLE_MS = 1000 / 30
 
+// Exponential moving average smoothing factor.
+// Lower = smoother but slower to respond; 0.2 gives ~150ms settling time at 30fps.
+const EMA_ALPHA = 0.2
+
+// How many consecutive null frames before we clear the display (avoids flickering on brief silence)
+const NULL_FRAME_HOLD = 10
+
 interface PitchState {
   frequency: number | null
   clarity: number | null
@@ -33,6 +40,8 @@ export function usePitchDetection(): UsePitchDetectionReturn {
   const engineRef = useRef<AudioEngine | null>(null)
   const selectedStringRef = useRef<UkuleleString | null>(null)
   const lastFrameTimeRef = useRef<number>(0)
+  const smoothedFreqRef = useRef<number | null>(null)
+  const nullFrameCountRef = useRef<number>(0)
 
   const start = useCallback(async (selectedString?: UkuleleString | null) => {
     selectedStringRef.current = selectedString ?? null
@@ -49,13 +58,23 @@ export function usePitchDetection(): UsePitchDetectionReturn {
       const result = detectPitch(buffer, sampleRate)
 
       if (!result) {
-        setState(prev =>
-          prev.frequency === null ? prev : initialState
-        )
+        nullFrameCountRef.current += 1
+        if (nullFrameCountRef.current >= NULL_FRAME_HOLD) {
+          smoothedFreqRef.current = null
+          setState(prev => prev.frequency === null ? prev : initialState)
+        }
         return
       }
 
-      const { frequency, clarity } = result
+      nullFrameCountRef.current = 0
+
+      // Apply EMA to smooth out frame-to-frame jitter
+      const { frequency: rawFreq, clarity } = result
+      smoothedFreqRef.current = smoothedFreqRef.current === null
+        ? rawFreq
+        : EMA_ALPHA * rawFreq + (1 - EMA_ALPHA) * smoothedFreqRef.current
+
+      const frequency = smoothedFreqRef.current
       const targetString = selectedStringRef.current ?? findClosestString(frequency)
       const cents = freqToCents(frequency, targetString.frequency)
 
@@ -69,6 +88,8 @@ export function usePitchDetection(): UsePitchDetectionReturn {
   const stop = useCallback(async () => {
     await engineRef.current?.stop()
     engineRef.current = null
+    smoothedFreqRef.current = null
+    nullFrameCountRef.current = 0
     setIsListening(false)
     setState(initialState)
   }, [])

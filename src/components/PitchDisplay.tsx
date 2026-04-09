@@ -12,7 +12,7 @@ export function PitchDisplay({ frequency, closestString }: PitchDisplayProps) {
         {closestString ? `${closestString.note}${closestString.octave}` : '—'}
       </div>
       <div className="text-gray-400 text-sm mt-1 min-h-[1.25rem]">
-        {frequency !== null ? `${frequency.toFixed(1)} Hz` : ''}
+        {frequency !== null ? `${Math.round(frequency)} Hz` : ''}
       </div>
     </div>
   )
