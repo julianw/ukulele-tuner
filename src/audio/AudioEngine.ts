@@ -1,6 +1,7 @@
 export type FrameCallback = (buffer: Float32Array<ArrayBuffer>, sampleRate: number) => void
 
-const FFT_SIZE = 2048
+export const FFT_SIZE_NORMAL = 2048
+export const FFT_SIZE_LARGE  = 4096
 
 export class AudioEngine {
   private context: AudioContext | null = null
@@ -11,7 +12,7 @@ export class AudioEngine {
   private rafId: number | null = null
   private onFrame: FrameCallback | null = null
 
-  async start(onFrame: FrameCallback): Promise<void> {
+  async start(onFrame: FrameCallback, fftSize: number = FFT_SIZE_NORMAL): Promise<void> {
     if (this.context) {
       await this.stop()
     }
@@ -34,7 +35,7 @@ export class AudioEngine {
     }
 
     this.analyser = this.context.createAnalyser()
-    this.analyser.fftSize = FFT_SIZE
+    this.analyser.fftSize = fftSize
     this.analyser.smoothingTimeConstant = 0
 
     this.source = this.context.createMediaStreamSource(this.stream)

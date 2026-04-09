@@ -3,14 +3,23 @@ import { StringSelector } from './StringSelector'
 import { TuningNeedle } from './TuningNeedle'
 import { PitchDisplay } from './PitchDisplay'
 import { StatusBanner } from './StatusBanner'
+import { DebugPanel } from './DebugPanel'
 import { useMicrophone } from '../hooks/useMicrophone'
-import { usePitchDetection } from '../hooks/usePitchDetection'
+import { usePitchDetection, type PitchDetectionSettings } from '../hooks/usePitchDetection'
+import { DEBUG_MODE } from '../constants/debug'
 import type { UkuleleString } from '../constants/tuning'
+
+const DEFAULT_SETTINGS: PitchDetectionSettings = {
+  largeBuffer: false,
+  outlierRejection: true,
+}
 
 export default function App() {
   const [selectedString, setSelectedString] = useState<UkuleleString | null>(null)
+  const [settings, setSettings] = useState<PitchDetectionSettings>(DEFAULT_SETTINGS)
+
   const { status: micStatus, requestAccess } = useMicrophone()
-  const { isListening, frequency, cents, closestString, start, stop } = usePitchDetection()
+  const { isListening, frequency, cents, closestString, start, stop, debugInfo } = usePitchDetection(settings)
 
   const handleStartStop = useCallback(async () => {
     if (isListening) {
@@ -19,8 +28,6 @@ export default function App() {
     }
 
     // On mobile browsers, AudioContext must be created inside a user gesture.
-    // We request mic access here (inside the click handler) so AudioContext
-    // creation in AudioEngine.start() also happens within the gesture.
     if (micStatus !== 'granted') {
       const granted = await requestAccess()
       if (!granted) return
@@ -31,7 +38,6 @@ export default function App() {
 
   const handleStringSelect = useCallback((string: UkuleleString | null) => {
     setSelectedString(string)
-    // If already listening, restart with new string selection
     if (isListening) {
       stop().then(() => start(string))
     }
@@ -73,6 +79,13 @@ export default function App() {
         <p className="text-red-400 text-xs text-center max-w-xs">
           Microphone access was denied. Please allow microphone access in your browser settings and reload.
         </p>
+      )}
+
+      {/* Debug panel — only rendered when started with `npm run dev:debug` */}
+      {DEBUG_MODE && (
+        <div className="w-full max-w-sm">
+          <DebugPanel settings={settings} onChange={setSettings} debugInfo={debugInfo} />
+        </div>
       )}
     </div>
   )
