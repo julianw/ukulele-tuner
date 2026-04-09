@@ -68,17 +68,24 @@ export function usePitchDetection(): UsePitchDetectionReturn {
 
       nullFrameCountRef.current = 0
 
-      // Apply EMA to smooth out frame-to-frame jitter
       const { frequency: rawFreq, clarity } = result
+
+      // Determine target string from user selection or by detecting from raw freq.
+      // We need this BEFORE EMA so we can octave-correct each frame individually.
+      const targetForCorrection = selectedStringRef.current ?? findClosestString(rawFreq)
+
+      // Octave-correct the raw frame first, THEN apply EMA.
+      // If EMA ran on the raw frequency, a mix of fundamental (~330 Hz) and harmonic
+      // (~660 Hz) frames would average to ~380 Hz and land on the wrong string (G4).
+      const correctedRaw = octaveCorrect(rawFreq, targetForCorrection.frequency)
+
       smoothedFreqRef.current = smoothedFreqRef.current === null
-        ? rawFreq
-        : EMA_ALPHA * rawFreq + (1 - EMA_ALPHA) * smoothedFreqRef.current
+        ? correctedRaw
+        : EMA_ALPHA * correctedRaw + (1 - EMA_ALPHA) * smoothedFreqRef.current
 
       const frequency = smoothedFreqRef.current
       const targetString = selectedStringRef.current ?? findClosestString(frequency)
-      // Correct octave errors before computing cents so the needle stays near centre
-      const correctedFreq = octaveCorrect(frequency, targetString.frequency)
-      const cents = freqToCents(correctedFreq, targetString.frequency)
+      const cents = freqToCents(frequency, targetString.frequency)
 
       setState({ frequency, clarity, cents, closestString: targetString })
     }
