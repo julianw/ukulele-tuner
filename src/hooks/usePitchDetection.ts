@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { AudioEngine } from '../audio/AudioEngine'
 import { detectPitch } from '../audio/PitchDetector'
-import { freqToCents, findClosestString } from '../audio/noteUtils'
+import { freqToCents, findClosestString, octaveCorrect } from '../audio/noteUtils'
 import type { UkuleleString } from '../constants/tuning'
 
 const THROTTLE_MS = 1000 / 30
@@ -76,7 +76,9 @@ export function usePitchDetection(): UsePitchDetectionReturn {
 
       const frequency = smoothedFreqRef.current
       const targetString = selectedStringRef.current ?? findClosestString(frequency)
-      const cents = freqToCents(frequency, targetString.frequency)
+      // Correct octave errors before computing cents so the needle stays near centre
+      const correctedFreq = octaveCorrect(frequency, targetString.frequency)
+      const cents = freqToCents(correctedFreq, targetString.frequency)
 
       setState({ frequency, clarity, cents, closestString: targetString })
     }
