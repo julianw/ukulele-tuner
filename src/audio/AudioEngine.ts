@@ -1,4 +1,4 @@
-export type FrameCallback = (buffer: Float32Array, sampleRate: number) => void
+export type FrameCallback = (buffer: Float32Array<ArrayBuffer>, sampleRate: number) => void
 
 const FFT_SIZE = 2048
 
@@ -7,7 +7,7 @@ export class AudioEngine {
   private analyser: AnalyserNode | null = null
   private source: MediaStreamAudioSourceNode | null = null
   private stream: MediaStream | null = null
-  private buffer: Float32Array | null = null
+  private buffer: Float32Array<ArrayBuffer> | null = null
   private rafId: number | null = null
   private onFrame: FrameCallback | null = null
 

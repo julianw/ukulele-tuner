@@ -6,9 +6,9 @@ export interface PitchResult {
   clarity: number
 }
 
-const detectorCache = new Map<number, PitchyDetector<Float32Array>>()
+const detectorCache = new Map<number, PitchyDetector<Float32Array<ArrayBuffer>>>()
 
-function getDetector(bufferSize: number): PitchyDetector<Float32Array> {
+function getDetector(bufferSize: number): PitchyDetector<Float32Array<ArrayBuffer>> {
   if (!detectorCache.has(bufferSize)) {
     detectorCache.set(bufferSize, PitchyDetector.forFloat32Array(bufferSize))
   }
@@ -16,7 +16,7 @@ function getDetector(bufferSize: number): PitchyDetector<Float32Array> {
 }
 
 export function detectPitch(
-  buffer: Float32Array,
+  buffer: Float32Array<ArrayBuffer>,
   sampleRate: number
 ): PitchResult | null {
   const detector = getDetector(buffer.length)

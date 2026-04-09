@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest'
 import { detectPitch } from './PitchDetector'
 import { MIN_DETECTABLE_FREQ, MAX_DETECTABLE_FREQ, MIN_CLARITY } from '../constants/tuning'
 
-function generateSineWave(freq: number, sampleRate: number, numSamples: number): Float32Array {
-  const buffer = new Float32Array(numSamples)
+function generateSineWave(freq: number, sampleRate: number, numSamples: number): Float32Array<ArrayBuffer> {
+  const buffer = new Float32Array(numSamples) as Float32Array<ArrayBuffer>
   for (let i = 0; i < numSamples; i++) {
     buffer[i] = Math.sin(2 * Math.PI * freq * i / sampleRate)
   }
-  return buffer
+  return buffer as Float32Array<ArrayBuffer>
 }
 
 describe('detectPitch', () => {
@@ -37,7 +37,7 @@ describe('detectPitch', () => {
   })
 
   it('returns null for silence (all zeros)', () => {
-    const buffer = new Float32Array(BUFFER_SIZE)
+    const buffer = new Float32Array(BUFFER_SIZE) as Float32Array<ArrayBuffer>
     const result = detectPitch(buffer, SAMPLE_RATE)
     expect(result).toBeNull()
   })

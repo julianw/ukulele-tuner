@@ -41,7 +41,7 @@ export function usePitchDetection(): UsePitchDetectionReturn {
       engineRef.current = new AudioEngine()
     }
 
-    const onFrame = (buffer: Float32Array, sampleRate: number) => {
+    const onFrame = (buffer: Float32Array<ArrayBuffer>, sampleRate: number) => {
       const now = performance.now()
       if (now - lastFrameTimeRef.current < THROTTLE_MS) return
       lastFrameTimeRef.current = now
