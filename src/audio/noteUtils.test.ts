@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { freqToMidi, midiToFreq, freqToCents, findClosestString } from './noteUtils'
+import { freqToMidi, midiToFreq, freqToCents, findClosestString, octaveCorrect } from './noteUtils'
 import { MAX_DISPLAY_CENTS } from '../constants/tuning'
 
 describe('freqToMidi', () => {
@@ -93,5 +93,39 @@ describe('findClosestString', () => {
   it('350 Hz → E4 (closer to E4=329 than G4=392)', () => {
     const result = findClosestString(350)
     expect(result.note).toBe('E')
+  })
+
+  it('880 Hz (A4 octave up) → A4 via octave correction', () => {
+    const result = findClosestString(880)
+    expect(result.note).toBe('A')
+  })
+
+  it('659 Hz (E4 octave up) → E4 via octave correction', () => {
+    const result = findClosestString(659)
+    expect(result.note).toBe('E')
+  })
+})
+
+describe('octaveCorrect', () => {
+  it('returns frequency unchanged when already close', () => {
+    expect(octaveCorrect(395, 392)).toBeCloseTo(395, 1)
+  })
+
+  it('halves frequency one octave up', () => {
+    expect(octaveCorrect(880, 440)).toBeCloseTo(440, 1)
+  })
+
+  it('doubles frequency one octave down', () => {
+    expect(octaveCorrect(220, 440)).toBeCloseTo(440, 1)
+  })
+
+  it('corrects two octaves up', () => {
+    expect(octaveCorrect(1760, 440)).toBeCloseTo(440, 1)
+  })
+
+  it('result is within ±600 cents of target', () => {
+    const corrected = octaveCorrect(659, 329.63)
+    const cents = Math.abs(1200 * Math.log2(corrected / 329.63))
+    expect(cents).toBeLessThan(600)
   })
 })
